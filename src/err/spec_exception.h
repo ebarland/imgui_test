@@ -6,9 +6,9 @@
 
 namespace err
 {
-	struct scrooge_exception : public std::exception
+	struct spec_exception : public std::exception
 	{
-		scrooge_exception( int line, const char * file, std::string message, exception_type type ) noexcept : _what { std::format( "[Line] {}\n[File] {}\nMessage {}", line, file, message ) }, _type { type }
+		spec_exception( int line, const char * file, std::string message, exception_type type ) noexcept : _what { std::format( "[Line] {}\n[File] {}\nMessage {}", line, file, message ) }, _type { type }
 		{
 		}
 

@@ -1,31 +1,24 @@
 #pragma once
 #include <cstdio>
-#include <exception>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
-#include "shader.h"
 #include "main_window.h"
 #include "plot_window.h"
 #include <iostream>
 
 namespace gfx
 {
-	// static gfx::camera * get_camera_context( GLFWwindow * window )
-	// {
-	// 	return static_cast<gfx::camera *>( glfwGetWindowUserPointer( window ) );
-	// }
-
 	static window_user_data * get_window_user_data( GLFWwindow * window )
 	{
 		return static_cast<window_user_data *>( glfwGetWindowUserPointer( window ) );
 	}
 
-	// static void scroll_callback( GLFWwindow * window, double x, double y )
-	// {
-	// 	gfx::camera * camera = get_camera_context( window );
-	// 	camera->process_scroll( (float)y );
-	// }
+	static void scroll_callback( GLFWwindow * window, double x, double y )
+	{
+		window_user_data * user_data = get_window_user_data( window );
+		user_data->cam->process_scroll( (float)y );
+	}
 
 	static void framebuffer_size_callback( GLFWwindow * window, int width, int height )
 	{
@@ -35,79 +28,56 @@ namespace gfx
 
 	static void cursor_position_callback( GLFWwindow * window, double x_offset, double y_offset )
 	{
-		// Poll and handle events (inputs, window resize, etc.)
-		// You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
-		// - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or clear/overwrite your copy of the mouse data.
-		// - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application, or clear/overwrite your copy of the keyboard data.
-		// Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
-		try
+		auto current_context = ImGui::GetCurrentContext();
+
+		glfwMakeContextCurrent( window );
+
+		window_user_data * user_data = get_window_user_data( window );
+
+		ImGui::SetCurrentContext( user_data->imgui_context );
+
+		ImGuiIO & io = ImGui::GetIO();
+
+		io.MousePos.x = (float)x_offset;
+		io.MousePos.y = (float)y_offset;
+
+		if( ! io.WantCaptureMouse )
 		{
-			// auto current_context = ImGui::GetCurrentContext();
-
-			glfwMakeContextCurrent( window );
-
-			window_user_data * user_data = get_window_user_data( window );
-
-			// ImGui::SetCurrentContext( user_data->imgui_context );
-
-			// ImGuiIO & io = ImGui::GetIO();
-
-			// io.MousePos.x = (float)x_offset;
-			// io.MousePos.y = (float)y_offset;
-
-			// if( ! io.WantCaptureMouse )
-			// {
-				user_data->cam->process_mouse( (float)x_offset, (float)y_offset );
-			// }
-
-			// ImGui::SetCurrentContext( current_context );
+			user_data->cam->process_mouse( (float)x_offset, (float)y_offset );
 		}
-		catch( std::exception e )
-		{
-			std::printf( "THROW HERE" );
-			throw err::scrooge_exception( __LINE__, __FILE__, e.what(), err::exception_type::GFX );
-		}
+
+		ImGui::SetCurrentContext( current_context );
 	}
 
 	static void mouse_callback( GLFWwindow * window, int button, int action, int mods )
 	{
-		try
+		auto current_context = ImGui::GetCurrentContext();
+
+		glfwMakeContextCurrent( window );
+
+		window_user_data * user_data = get_window_user_data( window );
+
+		ImGui::SetCurrentContext( user_data->imgui_context );
+
+		ImGuiIO & io = ImGui::GetIO();
+
+		if( button == GLFW_MOUSE_BUTTON_LEFT )
 		{
-			// auto current_context = ImGui::GetCurrentContext();
-
-			glfwMakeContextCurrent( window );
-
-			window_user_data * user_data = get_window_user_data( window );
-
-			// ImGui::SetCurrentContext( user_data->imgui_context );
-
-			// ImGuiIO & io = ImGui::GetIO();
-
-			// bool MouseDown[5];
-			//  Mouse buttons: 0=left, 1=right, 2=middle + extras (ImGuiMouseButton_COUNT == 5). Dear ImGui mostly uses left and right buttons. Other buttons allow us to track if the mouse is being used by your application + available to user as a convenience via IsMouse** API.
-			if( button == GLFW_MOUSE_BUTTON_LEFT )
-			{
-				// if( GLFW_PRESS == action )
-				// 	io.MouseDown[0] = true;
-				// else if( GLFW_RELEASE == action )
-				// 	io.MouseDown[0] = false;
-			}
-
-			// ImGui::SetCurrentContext( current_context );
+			if( GLFW_PRESS == action )
+				io.MouseDown[0] = true;
+			else if( GLFW_RELEASE == action )
+				io.MouseDown[0] = false;
 		}
-		catch( std::exception e )
-		{
-			std::printf( "THROW HERE" );
-			throw err::scrooge_exception( __LINE__, __FILE__, e.what(), err::exception_type::GFX );
-		}
+
+		ImGui::SetCurrentContext( current_context );
 	}
 
-	struct composer
+	struct window_manager
 	{
-		composer()
+		window_manager()
 		{
 			if( ! glfwInit() )
-				throw err::scrooge_exception { __LINE__, __FILE__, "Failed to initialize GLFW", err::exception_type::GFX };
+				throw err::spec_exception { __LINE__, __FILE__, "Failed to initialize GLFW", err::exception_type::GFX };
 
 			_main_window = gfx::main_window( 1920, 1080, "scrooge" );
 
@@ -132,33 +102,18 @@ namespace gfx
 
 		bool compose()
 		{
-			float current_frame = glfwGetTime();
-			float delta_time = current_frame - _last_frame;
-			_time_diff = current_frame - _prev_time;
-			++_counter;
-
-			if( _time_diff >= ( 1.0 / 30.0 ) )
-			{
-				glfwSetWindowTitle( _main_window.glfw_window, std::to_string( ( 1.0 / _time_diff ) * _counter ).c_str() );
-				_counter = 0;
-				_prev_time = current_frame;
-			}
-
-			switch( _main_window.process( _program_state, delta_time ) )
+			switch( _main_window.process() )
 			{
 			case gfx::MAIN_WINDOW_ACTION::SHUTDOWN:
 				shutdown();
 				return false;
 			case gfx::MAIN_WINDOW_ACTION::NOTHING:
-				process_extra_windows( delta_time );
+				process_extra_windows();
 				break;
 			case gfx::MAIN_WINDOW_ACTION::NEW_EXTRA_WINDOW:
-				// add_extra_window( 1920, 1080, std::format( "Extra window {}", extra_windows.size() + 1 ).c_str() );
-				add_extra_window( 1920, 1080, std::format( "Extra window {}", window_counter ).c_str() );
+				add_extra_window( 1920, 1080, std::format( "Extra window {}", window_counter ).data() );
 				break;
 			}
-
-			_last_frame = current_frame;
 
 			return true;
 		}
@@ -166,14 +121,11 @@ namespace gfx
 	private:
 		void shutdown()
 		{
-			// for( auto & w: extra_windows )
-			// {
-			// 	w.destroy();
-			// }
+			for( auto & w: extra_windows )
+			{
+				w.destroy();
+			}
 
-			ImGui_ImplOpenGL3_Shutdown();
-			ImGui_ImplGlfw_Shutdown();
-			ImGui::DestroyContext();
 			_main_window.shutdown();
 			_main_window.destroy();
 			glfwTerminate();
@@ -251,13 +203,13 @@ namespace gfx
 
 			++window_counter;
 		}
-		void process_extra_windows( float delta_time )
+		void process_extra_windows()
 		{
 			std::vector<int> remove_indices;
 
 			for( auto i = 0; i < extra_windows.size(); ++i )
 			{
-				if( extra_windows[i].process( delta_time ) )
+				if( extra_windows[i].process() )
 					remove_indices.push_back( i );
 			}
 
@@ -265,19 +217,12 @@ namespace gfx
 				extra_windows.erase( extra_windows.begin() + remove_indices[i] );
 		}
 
-		float _last_frame = 0.0;
-		double _prev_time = 0.0;
-		double _time_diff;
-		unsigned int _counter = 0;
-
 		gfx::main_window _main_window;
 		// gfx::plot_window extra_window0;
 		// gfx::plot_window extra_window1;
 		std::vector<gfx::plot_window> extra_windows;
 
 		int window_counter = 0;
-
-		gfx::PROGRAM_STATE _program_state = PROGRAM_STATE::MAIN_MENU;
 	};
 
 } // namespace gfx

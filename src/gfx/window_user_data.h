@@ -1,6 +1,6 @@
 #pragma once
-#include "camera.h"
 #include "imgui_internal.h"
+#include "../gfx/camera.h"
 
 namespace gfx
 {
@@ -8,6 +8,5 @@ namespace gfx
 	{
 		gfx::camera * cam;
 		ImGuiContext * imgui_context;
-		std::string window_name;
 	};
 } // namespace gfx
